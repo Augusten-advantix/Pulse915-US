@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Visualization</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            background: #111;
+            color: #ddd;
+            padding: 20px;
+        }
+
+        .controls {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            border: 1px solid #333;
+        }
+
+        .controls h2 {
+            margin-top: 0;
+            color: #4a9eff;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 10px 15px;
+            font-size: 16px;
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #ddd;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
+        .filter-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .filter-btn {
+            padding: 10px 20px;
+            font-size: 14px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background: #2a2a2a;
+            color: #ddd;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .filter-btn:hover {
+            background: #3a3a3a;
+        }
+
+        .filter-btn.active {
+            background: #4a9eff;
+            border-color: #4a9eff;
+            color: #fff;
+        }
+
+        .trade-count {
+            font-size: 14px;
+            color: #888;
+            padding: 10px 0;
+        }
+
+        .trade-container {
+            margin-bottom: 50px;
+            border: 1px solid #333;
+            padding: 20px;
+            border-radius: 8px;
+            background: #1a1a1a;
+            transition: opacity 0.3s;
+        }
+
+        .trade-container.hidden {
+            display: none;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .chart {
+            width: 100%;
+            height: 500px;
+        }
+
+        .win {
+            color: #4caf50;
+        }
+
+        .loss {
+            color: #f44336;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Phase-4 Backtest Visualization</h1>
+
+    <div class="controls">
+        <h2>🔍 Search & Filter</h2>
+        <div class="filter-row">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Search by symbol name (e.g., IREDA, HINDCOPPER)..." />
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Trades</button>
+                <button class="filter-btn" data-filter="win">Wins Only</button>
+                <button class="filter-btn" data-filter="loss">Losses Only</button>
+            </div>
+        </div>
+        <div class="trade-count" id="tradeCount">Loading trades...</div>
+    </div>
+
+    <div id="charts"></div>
+    <div id="noResults" class="no-results" style="display: none;">
+        No trades match your search criteria
+    </div>
+
+    <script>
+        let allTradeContainers = [];
+        let currentFilter = 'all';
+        let currentSearchTerm = '';
+
+        async function loadData() {
+            try {
+                const response = await fetch('viz_data.json');
+                const trades = await response.json();
+
+                trades.forEach(trade => {
+                    const container = renderTrade(trade);
+                    allTradeContainers.push(container);
+                });
+
+                // Initialize filters
+                setupFilters();
+                updateTradeCount();
+            } catch (e) {
+                console.error(e);
+                document.getElementById('charts').innerHTML = `<p style="color:red">Error loading data: ${e.message}<br><pre>${e.stack}</pre></p>`;
+            }
+        }
+
+        function setupFilters() {
+            // Search input
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                currentSearchTerm = e.target.value.toLowerCase();
+                applyFilters();
+            });
+
+            // Filter buttons
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update active state
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Update current filter
+                    currentFilter = btn.getAttribute('data-filter');
+                    applyFilters();
+                });
+            });
+        }
+
+        function applyFilters() {
+            let visibleCount = 0;
+
+            allTradeContainers.forEach(containerData => {
+                const { container, trade } = containerData;
+
+                // Check search term
+                const matchesSearch = trade.symbol.toLowerCase().includes(currentSearchTerm);
+
+                // Check filter
+                let matchesFilter = true;
+                if (currentFilter === 'win') {
+                    matchesFilter = trade.pnl >= 0;
+                } else if (currentFilter === 'loss') {
+                    matchesFilter = trade.pnl < 0;
+                }
+
+                // Show or hide
+                if (matchesSearch && matchesFilter) {
+                    container.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    container.classList.add('hidden');
+                }
+            });
+
+            // Update count and no-results message
+            updateTradeCount(visibleCount);
+
+            const noResults = document.getElementById('noResults');
+            if (visibleCount === 0) {
+                noResults.style.display = 'block';
+            } else {
+                noResults.style.display = 'none';
+            }
+        }
+
+        function updateTradeCount(visibleCount = null) {
+            const total = allTradeContainers.length;
+            const visible = visibleCount !== null ? visibleCount : total;
+            const countEl = document.getElementById('tradeCount');
+
+            if (visible === total) {
+                countEl.textContent = `Showing all ${total} trades`;
+            } else {
+                countEl.textContent = `Showing ${visible} of ${total} trades`;
+            }
+        }
+
+        function renderTrade(trade) {
+            const container = document.createElement('div');
+            container.className = 'trade-container';
+
+            const pnlClass = trade.pnl >= 0 ? 'win' : 'loss';
+            const title = `
+                <div class="header">
+                    <div>
+                        <strong style="font-size: 1.2em">${trade.type}: ${trade.symbol}</strong><br>
+                        <span style="color: #888">${trade.date}</span>
+                    </div>
+                    <div style="text-align: right">
+                        <strong class="${pnlClass}">P&L: ₹${trade.pnl.toFixed(2)}</strong><br>
+                        <span style="font-size: 0.9em">${trade.reason}</span>
+                    </div>
+                </div>
+                <div class="chart" id="chart-${trade.symbol}-${trade.date}"></div>
+            `;
+
+            container.innerHTML = title;
+            document.getElementById('charts').appendChild(container);
+
+            const chartContainer = container.querySelector('.chart');
+
+            const chart = LightweightCharts.createChart(chartContainer, {
+                width: chartContainer.clientWidth,
+                height: 500,
+                layout: {
+                    background: { type: 'solid', color: '#1a1a1a' },
+                    textColor: '#d1d4dc',
+                },
+                grid: {
+                    vertLines: { color: '#333' },
+                    horzLines: { color: '#333' },
+                },
+                timeScale: {
+                    timeVisible: true,
+                    secondsVisible: false,
+                },
+            });
+
+            const candleSeries = chart.addCandlestickSeries({
+                upColor: '#26a69a',
+                downColor: '#ef5350',
+                borderVisible: false,
+                wickUpColor: '#26a69a',
+                wickDownColor: '#ef5350',
+            });
+
+            candleSeries.setData(trade.candles);
+
+            // Add Trailing Stop Line
+            const trailingSeries = chart.addLineSeries({
+                color: 'rgba(255, 12, 12, 0.8)',
+                lineWidth: 2,
+                lineStyle: 0, // Solid
+            });
+            trailingSeries.setData(trade.trailing_stop_line);
+
+            // Add Static Levels (Initial Stop & Target)
+            candleSeries.createPriceLine({
+                price: trade.stop_loss,
+                color: '#ff0000',
+                lineWidth: 1,
+                lineStyle: 1, // Dotted
+                axisLabelVisible: true,
+                title: 'Initial Stop',
+            });
+
+            candleSeries.createPriceLine({
+                price: trade.target,
+                color: '#00ff00',
+                lineWidth: 1,
+                lineStyle: 1, // Dotted
+                axisLabelVisible: true,
+                title: 'Target',
+            });
+
+            // Add Markers
+            // We use pre-calculated timestamps from the JSON to avoid JS parsing ambiguity
+
+            const markers = [];
+
+            // Find closest candle time for entry
+            const entryCandle = findClosestCandle(trade.candles, trade.entry_ts);
+            if (entryCandle) {
+                markers.push({
+                    time: entryCandle.time,
+                    position: 'belowBar',
+                    color: '#2196F3',
+                    shape: 'arrowUp',
+                    text: `Entry @ ${trade.entry_price}`,
+                });
+            }
+
+            // Find closest candle time for exit
+            const exitCandle = findClosestCandle(trade.candles, trade.exit_ts);
+            if (exitCandle) {
+                markers.push({
+                    time: exitCandle.time,
+                    position: 'aboveBar',
+                    color: '#FF9800',
+                    shape: 'arrowDown',
+                    text: `Exit @ ${trade.exit_price}`,
+                });
+            }
+
+            candleSeries.setMarkers(markers);
+            chart.timeScale().fitContent();
+
+            // Return container and trade data for filtering
+            return { container, trade };
+        }
+
+        function findClosestCandle(candles, targetTs) {
+            // Find candle with time closest to targetTs (forward search prefered)
+            // But simple min distance is okay
+            if (!candles.length) return null;
+
+            let closest = null;
+            let minDiff = Infinity;
+
+            for (const c of candles) {
+                const diff = Math.abs(c.time - targetTs);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closest = c;
+                }
+            }
+            // Only accept if diff is reasonable (e.g. within 60 seconds)
+            if (minDiff > 300) return null;
+            return closest;
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>

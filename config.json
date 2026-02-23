@@ -1,0 +1,39 @@
+{
+  "phase1": {
+    "MAX_SPREAD_PERCENT": 1,
+    "MIN_ATR_PERCENT": 1.5,
+    "MIN_TURNOVER_CR": 30,
+    "PRICE_MAX": 5000,
+    "PRICE_MIN": 80,
+    "TIME_END_HOUR": 9,
+    "TIME_END_MINUTE": 45,
+    "TIME_START_HOUR": 9,
+    "TIME_START_MINUTE": 30,
+    "VOLUME_MULTIPLIER": 1.15
+  },
+  "phase2": {
+    "MAX_VOLATILITY_SCORE": 40,
+    "USE_PERCENTILE_SCORING": true
+  },
+  "phase3": {
+    "ATR_MULTIPLIER": 1.25,
+    "MARKET_OPEN_HOUR": 9,
+    "MARKET_OPEN_MINUTE": 30,
+    "MODE_A_END_HOUR": 10,
+    "MODE_A_END_MINUTE": 45,
+    "MODE_A_START_HOUR": 9,
+    "MODE_A_START_MINUTE": 45,
+    "ORB_END_HOUR": 9,
+    "ORB_END_MINUTE": 45,
+    "RISK_REWARD_RATIO": 2
+  },
+  "phase4": {
+    "C_PCT": 0.5,
+    "C_PER_DAY": 1000000,
+    "FORCE_EXIT_TIME_HOUR": 15,
+    "FORCE_EXIT_TIME_MINUTE": 10,
+    "L_PCT": 0.02,
+    "SLIPPAGE_PCT": 0.001,
+    "TRANSACTION_COST_PCT": 0.0005
+  }
+}

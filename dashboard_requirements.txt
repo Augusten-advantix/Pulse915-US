@@ -1,0 +1,7 @@
+flask==3.0.0
+flask-cors==4.0.0
+flask-socketio==5.3.6
+pandas
+openpyxl
+requests
+simple-websocket
